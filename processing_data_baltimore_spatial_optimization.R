@@ -34,9 +34,46 @@ require(RCurl)
 require(stringr)
 require(XML)
 library(lubridate)
-
+library(sf)
 
 ####### Functions used in this script and sourced from other files
+
+generate_raster_dataType_table <- function(){
+  #Goal: this function generate a table (data.frame) with data types
+  # and valid value range used in the raster package R. The corresponding
+  # data type in the GDAL library is provided to allow matching when using
+  # GDAL commands.
+  
+  # Note that we are using the specific data types for tif.
+  # The following links provide more information:
+  #https://www.gdal.org/frmt_gtiff.html
+  #urrently band types of Byte, UInt16, Int16, UInt32, Int32, Float32, 
+  #Float64, CInt16, CInt32, CFloat32 and CFloat64 are supported for reading and writing.
+  
+  ######### Start scripts ################
+  
+  vals <- c("LOG1S",NA,	FALSE,TRUE, 
+            "INT1S","Byte",	-127,	127,
+            "INT1U",NA,0, 255,
+            "INT2S","Int16",	"-32,767","32,767",
+            "INT2U","UInt16",	0,	"65,534",
+            "INT4S","int32",	"-2,147,483,647",	"2,147,483,647",
+            "INT4U","UInt32",	0,	"4,294,967,296",
+            "FLT4S","Float32",	"-3.4e+38",	"3.4e+38",
+            "FLT8S","Float64",	"-1.7e+308",	"1.7e+308")
+  
+  dataType_table <- matrix(vals,nrow=9,ncol=4,byrow=T)
+  
+  dataType_table <-data.frame(dataType_table)
+  
+  names(dataType_table) <- c("r_type","gdal_type","min","max")
+  ### bug error, columns have become factor: changed this here
+  dataType_table <- data.frame(lapply(dataType_table, as.character), stringsAsFactors=FALSE)
+  
+  #class(dataType_table$gdal_type)
+  
+  return(dataType_table)
+}
 
 create_dir_fun <- function(outDir,out_suffix=NULL){
   #if out_suffix is not null then append out_suffix string
@@ -62,8 +99,8 @@ load_obj <- function(f){
 
 #Benoit setup
 script_path <- "/nfs/bparmentier-data/Data/projects/soilsesfeedback-data/scripts"
-modeling_functions <- "bayes_logistic_model_functions_10242018.R"
-source(file.path(script_path,modeling_functions))
+#modeling_functions <- "bayes_logistic_model_functions_10242018.R"
+#source(file.path(script_path,modeling_functions))
 
 #########cd ###################################################################
 #####  Parameters and argument set up ########### 
@@ -83,6 +120,7 @@ num_cores <- 2 # number of cores
 
 dem_baltimore_filename <- "DEM_BaltArea_1m.tif"
 landcover_baltimore_filename <- "landCover_area1m.tif"
+reg_outline_filename <- "watersheds8digit.shp"
 
 ################# START SCRIPT ###############################
 
@@ -112,12 +150,27 @@ if(create_out_dir_param==TRUE){
 
 r_dem <- raster(file.path(in_dir,dem_baltimore_filename))
 r_lc <- raster(file.path(in_dir,landcover_baltimore_filename))
+reg_sf <- read_sf(file.path(in_dir,reg_outline_filename))
 
+plot(reg_sf$geometry,add=T)
+reg_sf
+
+st_transform(reg_sf)
 #local md projection:
 crs_reg <- "+proj=lcc +lat_1=39.45 +lat_2=38.3 +lat_0=37.66666666666666 +lon_0=-77 +x_0=400000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs" 
 
-dataType(r_dem)
+data_type_str <- dataType(r_dem)
 NAvalue(r_dem)
+
+dataType_table <- generate_raster_dataType_table()
+
+dataType_selected <- dataType_table$r_type==data_type_str
+data_type_table_selected <- dataType_table[dataType_selected,]
+data_type_table_selected
+
+src_dataset <- dem_baltimore_filename
+
+output_type <- data_type_table_selected$gdal_type
 
 cmd_str = paste0("gdalwarp",
                  " -ot "+output_type,
