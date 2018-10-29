@@ -16,19 +16,25 @@
 ##
 
 ## Very good reference:
+#Land Cover data : https://chesapeakeconservancy.org/conservation-innovation-center/high-resolution-data/land-cover-data-project-2/
+#DEM data:  https://imap.maryland.gov/Pages/lidar-dem-download-files.aspx 
 
 ###################################################
 #
 
 ###### Library used
 
-library(MASS)
-library(lme4)
-library(rstanarm)
-library("bayesplot")
-library("ggplot2")
-library("loo")
-library("parallel")
+library(sp)
+library(raster)
+library(rgdal)
+require(rgeos)
+library(BMS) #contains hex2bin and bin2hex
+library(bitops)
+require(RCurl)
+require(stringr)
+require(XML)
+library(lubridate)
+
 
 ####### Functions used in this script and sourced from other files
 
@@ -63,19 +69,20 @@ source(file.path(script_path,modeling_functions))
 #####  Parameters and argument set up ########### 
 
 #ARGS 1
-in_dir <- "/nfs/bparmentier-data/Data/projects/soilsesfeedback-data/data"
+in_dir <- "/nfs/bparmentier-data/Data/projects/urban_green_planning/GAstart"
+#Z:\Data\Baltimore\Hydrology\GAstart
+#in_dir <- "/nfs/tjovanovic-data/Data/Baltimore/Hydrology/GAstart"
 #ARGS 2
-out_dir <- "/nfs/bparmentier-data/Data/projects/soilsesfeedback-data/outputs"
+out_dir <- "/nfs/bparmentier-data/Data/projects/urban_green_planning/outputs"
 #ARGS 3:
 create_out_dir_param=TRUE #create a new ouput dir if TRUE
 #ARGS 7
-out_suffix <-"_10232018" #output suffix for the files and ouptut folder
+out_suffix <-"_10292018" #output suffix for the files and ouptut folder
 #ARGS 8
 num_cores <- 2 # number of cores
 
-in_filename <- "NRCS_FSAMergeDataset_w_PDSI2_7_28_18.csv"
-model_type <- "bayes_stan"
-y_var_name <- "Concern_DryDrought"
+dem_baltimore_filename <- "DEM_BaltArea_1m.tif"
+landcover_baltimore_filename <- "landCover_area1m.tif"
 
 ################# START SCRIPT ###############################
 
@@ -103,15 +110,22 @@ if(create_out_dir_param==TRUE){
 #######################################
 ### PART 1: Read in DATA #######
 
-dataDR <- read.csv(file.path(in_dir,in_filename), 
-                   header = TRUE)
+r_dem <- raster(file.path(in_dir,dem_baltimore_filename))
+r_lc <- raster(file.path(in_dir,landcover_baltimore_filename))
 
-dataDR$y_var <- dataDR[[y_var_name]]
+#local md projection:
+crs_reg <- "+proj=lcc +lat_1=39.45 +lat_2=38.3 +lat_0=37.66666666666666 +lon_0=-77 +x_0=400000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs" 
 
-dataDR$stdiv <- factor(dataDR$stdiv)
-dataDR$Agency <- factor(dataDR$Agency)
-dataDR$y_var <- factor(dataDR$y_var)
+dataType(r_dem)
+NAvalue(r_dem)
+
+cmd_str = paste0("gdalwarp",
+                 " -ot "+output_type,
+                 " -srcnodata "+NA_flag_val_str,
+                 " "+"-t_srs"+" '"+CRS_reg+"'",
+                 " -dstnodata "+NA_flag_val_str,
+                 " -overwrite",
+                 " "+src_dataset, 
+                 " "+dst_dataset)             
 
 
-#Z:\Data\Baltimore\Hydrology\GAstart
-in_dir <- "/nfs/tjovanovic-data/Data/Baltimore/Hydrology/GAstart"
