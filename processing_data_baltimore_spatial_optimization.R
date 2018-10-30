@@ -155,11 +155,30 @@ reg_sf <- read_sf(file.path(in_dir,reg_outline_filename))
 plot(reg_sf$geometry,add=T)
 reg_sf
 
-st_transform(reg_sf)
+reg_sf_dem <- st_transform(reg_sf,projection(r_dem))
+plot(r_dem)
+plot(reg_sf_dem$geometry,add=T)
+reg_sp_dem <- as(reg_sf_dem,"Spatial")
+r_dem_crop <- crop(r_dem,reg_sp_dem)
+
+reg_sf_lc <- st_transform(reg_sf,projection(r_lc))
+
+reg_sp_lc <- as(reg_sf_lc,"Spatial")
+r_lc_crop <- crop(r_lc,reg_sp_lc)
+plot(r_lc)
+plot(r_lc_crop)
+plot(reg_sf_lc$geometry,add=T)
 #local md projection:
 crs_reg <- "+proj=lcc +lat_1=39.45 +lat_2=38.3 +lat_0=37.66666666666666 +lon_0=-77 +x_0=400000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs" 
 
-data_type_str <- dataType(r_dem)
+r_dem_md <- projectRaster(r_dem_crop,res=c(1,1),crs=crs_reg)
+writeRaster(r_dem_md,"dem_md.tif")
+
+r_lc_md <- projectRaster(r_lc_crop,r_dem_md)
+
+#### Use gdal:
+
+ddata_type_str <- dataType(r_dem)
 NAvalue(r_dem)
 
 dataType_table <- generate_raster_dataType_table()
