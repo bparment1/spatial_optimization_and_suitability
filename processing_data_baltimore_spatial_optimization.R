@@ -5,14 +5,14 @@
 ##
 ##
 ## DATE CREATED: 10/29/2018
-## DATE MODIFIED: 10/29/2018
+## DATE MODIFIED: 11/01/2018
 ## AUTHORS: Benoit Parmentier, Tijana Jovanovic  
 ## Version: 1
 ## PROJECT: Urban green infrastructure
 ## ISSUE: 
 ## TO DO:
 ##
-## COMMIT: initial commit
+## COMMIT: testing gdwal_warp
 ##
 
 ## Very good reference:
@@ -114,9 +114,10 @@ out_dir <- "/nfs/bparmentier-data/Data/projects/urban_green_planning/outputs"
 #ARGS 3:
 create_out_dir_param=TRUE #create a new ouput dir if TRUE
 #ARGS 7
-out_suffix <-"_10292018" #output suffix for the files and ouptut folder
+out_suffix <-"processing_data_11012018" #output suffix for the files and ouptut folder
 #ARGS 8
 num_cores <- 2 # number of cores
+file_format <- ".tif"
 
 dem_baltimore_filename <- "DEM_BaltArea_1m.tif"
 landcover_baltimore_filename <- "landCover_area1m.tif"
@@ -158,8 +159,14 @@ reg_sf
 reg_sf_dem <- st_transform(reg_sf,projection(r_dem))
 plot(r_dem)
 plot(reg_sf_dem$geometry,add=T)
+
+### PART 2: Crop to region of interest #######
+
 reg_sp_dem <- as(reg_sf_dem,"Spatial")
 r_dem_crop <- crop(r_dem,reg_sp_dem)
+
+dem_crop_baltimore_filename <- paste0("r_dem_crop_",out_suffix,file_format)
+writeRaster(r_dem_crop,filename = file.path(out_dir,dem_crop_baltimore_filename))
 
 reg_sf_lc <- st_transform(reg_sf,projection(r_lc))
 
@@ -168,36 +175,77 @@ r_lc_crop <- crop(r_lc,reg_sp_lc)
 plot(r_lc)
 plot(r_lc_crop)
 plot(reg_sf_lc$geometry,add=T)
+
+dem_lc_baltimore_filename <- paste0("r_dem_crop_",out_suffix,file_format)
+writeRaster(r_lc_crop,filename = file.path(out_dir,dem_lc_baltimore_filename))
+
+#########################
+### PART 3: reproject raster to Maryland State plane #######
+
 #local md projection:
 crs_reg <- "+proj=lcc +lat_1=39.45 +lat_2=38.3 +lat_0=37.66666666666666 +lon_0=-77 +x_0=400000 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs" 
-
-r_dem_md <- projectRaster(r_dem_crop,res=c(1,1),crs=crs_reg)
-writeRaster(r_dem_md,"dem_md.tif")
-
-r_lc_md <- projectRaster(r_lc_crop,r_dem_md)
-
-#### Use gdal:
-
-ddata_type_str <- dataType(r_dem)
-NAvalue(r_dem)
-
 dataType_table <- generate_raster_dataType_table()
 
+#r_dem_md <- projectRaster(r_dem_crop,res=c(1,1),crs=crs_reg)
+#writeRaster(r_dem_md,"dem_md.tif")
+
+#r_lc_md <- projectRaster(r_lc_crop,r_dem_md)
+
+#### Use gdal:reproject dem first 
+
+
+data_type_str <- dataType(r_dem)
+NAvalue(r_dem)
 dataType_selected <- dataType_table$r_type==data_type_str
 data_type_table_selected <- dataType_table[dataType_selected,]
 data_type_table_selected
 
-src_dataset <- dem_baltimore_filename
-
+src_dataset <- dem_crop_baltimore_filename 
+dst_dataset <- file.path(out_dir,paste0("r_dem_crop_","md_",out_suffix,file_format))
+  
 output_type <- data_type_table_selected$gdal_type
+NA_flag_val_str <- data_type_table_selected$min
+CRS_reg <- crs_reg
+
+#gdalwarp -t_srs '+proj=utm +zone=11 +datum=WGS84' -overwrite raw_spot.tif utm11.tif
 
 cmd_str = paste0("gdalwarp",
-                 " -ot "+output_type,
-                 " -srcnodata "+NA_flag_val_str,
-                 " "+"-t_srs"+" '"+CRS_reg+"'",
-                 " -dstnodata "+NA_flag_val_str,
+                 " -ot ",output_type,
+                 " -srcnodata ",NA_flag_val_str,
+                 " -t_srs ", paste0("'",CRS_reg,"'"),
+                 " -dstnodata ",NA_flag_val_str,
                  " -overwrite",
-                 " "+src_dataset, 
-                 " "+dst_dataset)             
+                 " ",src_dataset, 
+                 " ",dst_dataset)             
 
+system(cmd_str)
 
+#### Use gdal:reproject lc
+
+data_type_str <- dataType(r_lc)
+NAvalue(r_lc)
+dataType_selected <- dataType_table$r_type==data_type_str
+data_type_table_selected <- dataType_table[dataType_selected,]
+data_type_table_selected
+
+src_dataset <- lc_crop_baltimore_filename 
+dst_dataset <- file.path(out_dir,paste0("r_lc_crop_","md_",out_suffix,file_format))
+
+output_type <- data_type_table_selected$gdal_type
+NA_flag_val_str <- data_type_table_selected$min
+CRS_reg <- crs_reg
+
+#gdalwarp -t_srs '+proj=utm +zone=11 +datum=WGS84' -overwrite raw_spot.tif utm11.tif
+
+cmd_str = paste0("gdalwarp",
+                 " -ot ",output_type,
+                 " -srcnodata ",NA_flag_val_str,
+                 " -t_srs ", paste0("'",CRS_reg,"'"),
+                 " -dstnodata ",NA_flag_val_str,
+                 " -overwrite",
+                 " ",src_dataset, 
+                 " ",dst_dataset)             
+
+system(cmd_str)
+
+################################### 
