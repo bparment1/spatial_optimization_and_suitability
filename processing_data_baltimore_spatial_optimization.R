@@ -160,6 +160,7 @@ reg_sf_dem <- st_transform(reg_sf,projection(r_dem))
 plot(r_dem)
 plot(reg_sf_dem$geometry,add=T)
 
+#########################################
 ### PART 2: Crop to region of interest #######
 
 reg_sp_dem <- as(reg_sf_dem,"Spatial")
@@ -176,7 +177,7 @@ plot(r_lc)
 plot(r_lc_crop)
 plot(reg_sf_lc$geometry,add=T)
 
-dem_lc_baltimore_filename <- paste0("r_dem_crop_",out_suffix,file_format)
+lc_crop_baltimore_filename <- paste0("r_lc_crop_",out_suffix,file_format)
 writeRaster(r_lc_crop,filename = file.path(out_dir,dem_lc_baltimore_filename))
 
 #########################
@@ -200,8 +201,9 @@ dataType_selected <- dataType_table$r_type==data_type_str
 data_type_table_selected <- dataType_table[dataType_selected,]
 data_type_table_selected
 
+dem_md_baltimore <- file.path(out_dir,paste0("r_dem_crop_","md_",out_suffix,file_format))
 src_dataset <- dem_crop_baltimore_filename 
-dst_dataset <- file.path(out_dir,paste0("r_dem_crop_","md_",out_suffix,file_format))
+dst_dataset <- dem_md_baltimore
   
 output_type <- data_type_table_selected$gdal_type
 NA_flag_val_str <- data_type_table_selected$min
@@ -219,6 +221,9 @@ cmd_str = paste0("gdalwarp",
                  " ",dst_dataset)             
 
 system(cmd_str)
+
+r_dem_md <- raster(dem_md_baltimore)
+plot(r_dem_md)
 
 #### Use gdal:reproject lc
 
@@ -248,4 +253,4 @@ cmd_str = paste0("gdalwarp",
 
 system(cmd_str)
 
-################################### 
+################################### End of script #########################################
