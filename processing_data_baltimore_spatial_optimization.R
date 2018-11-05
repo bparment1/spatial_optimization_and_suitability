@@ -258,7 +258,7 @@ extent_val <- extent(r_dem_md)
 #ymin        : 168605.6 
 #ymax        : 201700 
 
-" -te <x_min> <y_min> <x_max> <y_max>",
+#" -te <x_min> <y_min> <x_max> <y_max>",
 extent_gdal <- extent_val[c(1,3,2,4)]
 
 #-tr xres yres:
@@ -270,23 +270,12 @@ extent_gdal <- extent_val[c(1,3,2,4)]
 #  set output file size in pixels and lines. 
 #If width or height is set to 0, the other dimension will be guessed from the computed resolution. Note that -ts cannot be used with -tr
 
-## this does not work to match
-cmd_str = paste0("gdalwarp",
+interpolation_method <- "near"
+## Need to change data type!!!
+cmd_str <- paste0("gdalwarp",
                  " -ot ",output_type,
                  " -srcnodata ",NA_flag_val_str,
-                 " -t_srs ", "target.wkt",
-                 " -te ", paste0(extent_gdal,collapse=" "),
-                 " -tr ", paste0(res_val,collapse = " "),
-                 " -tap ",
-                 #" -ts ", paste0(ts_val,collapse = " "),
-                 " -dstnodata ",NA_flag_val_str,
-                 " -overwrite",
-                 " ",src_dataset, 
-                 " ",dst_dataset)             
-
-cmd_str = paste0("gdalwarp",
-                 " -ot ",output_type,
-                 " -srcnodata ",NA_flag_val_str,
+                 " -r ", interpolation_method,
                  " -t_srs ", "target.wkt",
                  " -te ", paste0(extent_gdal,collapse=" "),
                  #" -tr ", paste0(res_val,collapse = " "),
@@ -309,37 +298,6 @@ res(r_dem_md)
 dim(r_dem_md)
 dim(r_lc_md)
 #https://gis.stackexchange.com/questions/239013/reprojecting-a-raster-to-match-another-raster-using-gdal
-
-http://www.gdal.org/gdalwarp.html says
-
--t_srs srs_def: target spatial reference set. The coordinate systems that can be passed are anything supported by the OGRSpatialReference.SetFromUserInput() call, which includes EPSG PCS and GCSes (i.e. EPSG:4296), PROJ.4 declarations (as above), or the name of a .prj file containing well known text.
-
-http://www.gdal.org/gdalsrsinfo.html says it
-
-Lists info about a given SRS in number of formats (WKT, PROJ.4, etc.)
-
-So you can write the SRS of your other raster to a file via
-
-gdalsrsinfo -o wkt other.tif > target.wkt
-and read it for gdalwarp via
-
-http://erouault.blogspot.com/2015/10/gdal-and-ogr-utilities-as-library.html
-
-http://erouault.blogspot.com/2015/10/gdal-and-ogr-utilities-as-library.html
-
-from osgeo import gdal
-
-ds = gdal.Open('input.tif')
-ds = gdal.Translate('output.tif', ds, projWin = [-75.3, 5.5, -73.5, 3.7])
-ds = None
-
-ds = gdal.Warp('', input_ds, format = 'VRT')
-
-
-gdalwarp -t_srs target.wkt source.tif output.tif
-You can combine this with a scripting language of your
-
-gdalsrsinfo -o wkt other.tif > target.wkt
 
 
 ################################### End of script #########################################
